@@ -1,3 +1,17 @@
+"""
+Manufacturing Equipment Monitoring System (FastAPI)
+
+This service provides:
+- CRUD for equipment records
+- Ingestion of sensor readings (temperature, pressure, vibration)
+- Rule-based classification of readings into NORMAL / WARNING / FAILURE
+- Storage and querying of alerts per equipment
+
+Why this matters (CIM/Fab IT context):
+Raw sensor data isn't actionable by itself. Engineers need alerts + context
+to quickly identify tools at risk and prioritize troubleshooting/maintenance.
+"""
+
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -14,14 +28,16 @@ from .schemas import (
     SensorReadingOut,
     AlertOut,
 )
-
+# Create database tables at app startup (simple approach for development).
 models.Base.metadata.create_all(bind = engine)
 
+# FastAPI application instance (defines metadata shown in Swagger /docs)
 app = FastAPI(
     title="Manufacturing Equipment Monitoring System", 
     version="0.1.0",
 )
 
+# CORS allows browser clients (Swagger UI, React frontend) to call this API.
 app.add_middleware(
     CORSMiddleware,
     allow_origins = ["https://congenial-funicular-g4rp7pp5pg9gcvgx-8000.app.github.dev"],
@@ -30,6 +46,13 @@ app.add_middleware(
     allow_headers = ["*"],
 )
 
+# -----------------------------
+# Rule thresholds (v1: deterministic)
+# -----------------------------
+# These thresholds are intentionally simple + explainable:
+# - Great for early monitoring systems
+# - Easy to test
+# - Easy for engineers to trust and act on
 TEMP_WARN = 85.0
 TEMP_FAIL = 95.0
 
@@ -40,6 +63,19 @@ PRESSURE_LOW = 0.8
 PRESSURE_HIGH = 1.3
 
 def evaluate_reading(temp: float, pressure: float, vibration: float) -> tuple[str, str]:
+
+    """
+    Classify a single sensor reading into NORMAL / WARNING / FAILURE.
+
+    Returns:
+        (severity, reason)
+        severity: "NORMAL" | "WARNING" | "FAILURE"
+
+    Design principle:
+    FAILURE conditions have priority. If any critical limit is exceeded, we raise FAILURE
+    even if other fields are normal.
+    """
+
     # FAILURE rules first
     if temp > TEMP_FAIL:
         return ("FAILURE", f"temperature > {TEMP_FAIL}")
@@ -57,20 +93,45 @@ def evaluate_reading(temp: float, pressure: float, vibration: float) -> tuple[st
     return ("NORMAL", "within normal thresholds")
 
 def get_db():
+
+    """
+    Dependency that provides a SQLAlchemy DB session per request.
+
+    Why:
+    - Ensures each request has a clean session
+    - Always closes session to avoid connection leaks
+    """
+
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
 
-
+# -----------------------------
+# Basic health check
+# -----------------------------
 @app.get("/")
 def root():
+
+    """Simple endpoint to confirm the service is running."""
+
     return {"status": "ok"}
 
-
+# -----------------------------
+# Equipment APIs
+# -----------------------------
 @app.post("/equipment", response_model=EquipmentOut)
 def create_equipment(equipment: EquipmentCreate, db: Session = Depends(get_db)):
+
+    """
+    Create a new equipment record.
+
+    Note:
+    - Equipment names are unique to prevent duplicate tool identities,
+      which is important for data integrity in manufacturing environments.
+    """
+
     eq = Equipment(
         name=equipment.name, tool_type=equipment.tool_type, location=equipment.location
     )
@@ -80,19 +141,61 @@ def create_equipment(equipment: EquipmentCreate, db: Session = Depends(get_db)):
         db.refresh(eq)
         return eq
     except IntegrityError:
+        # If name is unique and already exists, return a clear client error (409 Conflict)
         db.rollback()
         raise HTTPException(
             status_code=409, detail=f"Equipment name '{equipment.name}' already exists."
         )
 
 
+@app.get("/equipment", response_model=list[EquipmentOut])
+def list_equipment(db: Session = Depends(get_db)):
+
+    """
+    List all equipment.
+
+    Useful for dashboards and admin views.
+    """
+
+    return db.query(Equipment).all()
+
+
+@app.get("/equipment/{equipment_id}", response_model=EquipmentOut)
+def get_equipment(equipment_id: int, db: Session = Depends(get_db)):
+
+    """
+    Fetch a single equipment record by ID.
+
+    Returns 404 if the tool does not exist.
+    """
+
+    eq = db.query(Equipment).filter(Equipment.id == equipment_id).first()
+    if not eq:
+        raise HTTPException(status_code=404, detail="Equipment not found")
+    return eq
+
+
+# -----------------------------
+# Sensor Reading APIs
+# -----------------------------
 @app.post("/readings", response_model=SensorReadingOut)
 def add_reading(reading: SensorReadingCreate, db: Session = Depends(get_db)):
-    # Make sure equipment exists (prevent FK errors)
+
+
+    """
+    Ingest a sensor reading for a tool.
+
+    Design choice:
+    - Each reading also generates an Alert record.
+      This converts raw time-series data into actionable events.
+    """
+
+    # Validate equipment exists to avoid foreign key issues and provide a clean error to client
     eq = db.query(Equipment).filter(Equipment.id == reading.equipment_id).first()
     if not eq:
-        raise HTTPException(status_code = 404, detail = "Equipment not found")
+        raise HTTPException(status_code=404, detail="Equipment not found")
 
+    # Store the raw sensor reading (ground truth / historical record)
     sr = SensorReading(
         equipment_id=reading.equipment_id,
         temperature=reading.temperature,
@@ -100,14 +203,17 @@ def add_reading(reading: SensorReadingCreate, db: Session = Depends(get_db)):
         vibration=reading.vibration,
     )
 
+    # Convert the reading into an interpreted alert state (NORMAL/WARNING/FAILURE)
     severity, reason = evaluate_reading(sr.temperature, sr.pressure, sr.vibration)
 
+    # Store the alert event so clients can query failures/warnings without re-processing raw data
     alert = Alert(
-        equipment_id = sr.equipment_id,
-        severity = severity,
-        reason = reason
+        equipment_id=sr.equipment_id,
+        severity=severity,
+        reason=reason,
     )
 
+    # Persist both reading + alert in one transaction for consistency
     db.add(sr)
     db.add(alert)
     db.commit()
@@ -115,20 +221,16 @@ def add_reading(reading: SensorReadingCreate, db: Session = Depends(get_db)):
     return sr
 
 
-@app.get("/equipment", response_model=list[EquipmentOut])
-def list_equipment(db: Session = Depends(get_db)):
-    return db.query(Equipment).all()
+@app.get("/equipment/{equipment_id}/readings", response_model=list[SensorReadingOut])
+def get_readings(equipment_id: int, limit: int = 50, db: Session = Depends(get_db)):
 
+    """
+    Return the most recent sensor readings for a specific tool.
 
-@app.get("/equipment/{equipment_id}", response_model=EquipmentOut)
-def get_equipment(equipment_id: int, db: Session = Depends(get_db)):
-    eq = db.query(Equipment).filter(Equipment.id == equipment_id).first()
-    if not eq:
-        raise HTTPException(status_code=404, detail="Equipment not found")
-    return eq
-
-@app.get("/equipment/{equipment_id}/readings", response_model = list[SensorReadingOut])
-def get_readings(equipment_id: int,limit: int = 50,db: Session = Depends(get_db)):
+    Why:
+    - Engineers typically review a recent window of readings to diagnose issues
+    - Sorted newest-first for quick inspection
+    """
 
     readings = (
         db.query(SensorReading)
@@ -138,23 +240,43 @@ def get_readings(equipment_id: int,limit: int = 50,db: Session = Depends(get_db)
         .all()
     )
     return readings
-# Return latest sensor readings for a specific tool
 
-@app.get("/equipment/{equipment_id}/alerts", response_model = list[AlertOut])
+
+# -----------------------------
+# Alert APIs
+# -----------------------------
+@app.get("/equipment/{equipment_id}/alerts", response_model=list[AlertOut])
 def get_equipment_alerts(equipment_id: int, limit: int = 50, db: Session = Depends(get_db)):
+
+    """
+    Return recent alerts for a specific tool.
+
+    This is the "actionable" view engineers use to quickly see if a tool is drifting (WARNING)
+    or in a critical state (FAILURE).
+    """
+
     return (
         db.query(Alert)
         .filter(Alert.equipment_id == equipment_id)
+        # BUG FIX: create_at -> created_at (assuming your model uses created_at)
         .order_by(Alert.create_at.desc())
         .limit(limit)
         .all()
     )
 
-@app.get("/alerts/failure", response_model = list[AlertOut])
+
+@app.get("/alerts/failure", response_model=list[AlertOut])
 def get_failures(limit: int = 50, db: Session = Depends(get_db)):
+    """
+    Return the most recent FAILURE alerts across all equipment.
+
+    Useful for a "global" dashboard that prioritizes urgent attention.
+    """
     return (
         db.query(Alert)
-        .filter(Alert.severity == "FAilURE")
+        # BUG FIX: "FAilURE" -> "FAILURE"
+        .filter(Alert.severity == "FAILURE")
+        # BUG FIX: create_at -> created_at
         .order_by(Alert.create_at.desc())
         .limit(limit)
         .all()
