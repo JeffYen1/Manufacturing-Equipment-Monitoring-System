@@ -34,3 +34,13 @@ class SensorReadingOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class AlertOut(BaseModel):
+    id: int
+    equipment_id: int
+    severity: str
+    reason: str
+    create_at: datetime
+
+    class Config:
+        from_attributes = True

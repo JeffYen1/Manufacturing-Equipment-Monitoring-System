@@ -1,4 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from datetime import datetime
 from sqlalchemy.sql import func
 from .database import Base
 
@@ -20,3 +22,15 @@ class SensorReading(Base):
     pressure = Column(Float)
     vibration = Column(Float)
     timestamp = Column(DateTime(timezone = True), server_default = func.now())
+
+class Alert(Base):
+    __tablename__ = "alerts"
+
+    id = Column(Integer, primary_key = True, index = True)
+    equipment_id = Column(Integer, ForeignKey("equipment.id"), index = True, nullable = False)
+
+    severity = Column(String, nullable = False)
+    reason = Column(String, nullable = False)
+    create_at = Column(DateTime, default = datetime.utcnow, nullable = False)
+
+    equipment = relationship("Equipment")
