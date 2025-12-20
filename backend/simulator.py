@@ -13,7 +13,7 @@ import time
 import random
 import requests
 
-BASE_URL = "https://congenial-funicular-g4rp7pp5pg9gcvgx-8000.app.github.dev"
+BASE_URL = "http://127.0.0.1:8000"
 
 TOOLS = [
     {"id": 1, "name": "ETCH-01"},

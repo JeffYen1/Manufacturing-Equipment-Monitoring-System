@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
+from pydantic import BaseModel
 
 class EquipmentCreate(BaseModel):
      
@@ -44,3 +45,10 @@ class AlertOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class HealthOut(BaseModel):
+    equipment_id: int
+    level: str
+    window: int
+    warning_count: int
+    failure_count: int

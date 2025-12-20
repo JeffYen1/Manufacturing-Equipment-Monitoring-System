@@ -27,6 +27,7 @@ from .schemas import (
     EquipmentOut,
     SensorReadingOut,
     AlertOut,
+    HealthOut,
 )
 # Create database tables at app startup (simple approach for development).
 models.Base.metadata.create_all(bind = engine)
@@ -267,11 +268,13 @@ def get_equipment_alerts(equipment_id: int, limit: int = 50, db: Session = Depen
 
 @app.get("/alerts/failure", response_model=list[AlertOut])
 def get_failures(limit: int = 50, db: Session = Depends(get_db)):
+
     """
     Return the most recent FAILURE alerts across all equipment.
 
     Useful for a "global" dashboard that prioritizes urgent attention.
     """
+
     return (
         db.query(Alert)
         # BUG FIX: "FAilURE" -> "FAILURE"
@@ -281,3 +284,56 @@ def get_failures(limit: int = 50, db: Session = Depends(get_db)):
         .limit(limit)
         .all()
     )
+
+
+def coumpute_health(readings: list[SensorReading]) -> tuple[str, int, int]:
+
+    """
+    Compute a simple health level based on the most recent readings.
+
+    Returns:
+        (level, warning_count, failure_count)
+    """
+    warning_count = 0
+    failure_count = 0
+
+    for r in readings:
+        severity, _ = evaluate_reading(r.temperature, r.pressure, r.vibration)
+        if severity == "FAILURE":
+            failure_count += 1
+        elif severity == "WARNING":
+            warning_count += 1
+
+    if failure_count >= 2:
+        level = "HIGH"
+    elif failure_count == 1 or warning_count >= 3:
+        level = "MED"
+    else:
+        level = "LOW"
+    
+    return level,warning_count, failure_count
+
+@app.get("/equipment/{equipment_id}/health", response_model = HealthOut)
+def get_equipment_health(equipment_id: int, window: int = 50, db: Session = Depends(get_db)):
+    #Ensure equipment exists
+    eq = db.query(Equipment).filter(Equipment.id == equipment_id).first()
+    if not eq:
+        raise HTTPException(status_code = 404, detail = "Equipment not found")
+    
+    readings = (
+        db.query(SensorReading)
+        .filter(SensorReading.equipment_id == equipment_id)
+        .order_by(SensorReading.timestamp.desc())
+        .limit(window)
+        .all()
+    )
+
+    level, warning_count, failure_count = coumpute_health(readings)
+
+    return {
+        "equipment_id": equipment_id,
+        "level": level,
+        "window":   window,
+        "warning_count": warning_count,
+        "failure_count": failure_count,
+    }
