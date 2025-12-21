@@ -1,10 +1,31 @@
+"""
+API integration tests for the Manufacturing Equipment Monitoring System.
+
+These tests verify:
+- Core API endpoints behave correctly
+- Error handling for invalid input
+- Alert generation and health scoring logic
+
+The focus is on behavior, not implementation details.
+"""
 
 def test_root(client):
+
+    """
+    Basic sanity check to confirm the API is reachable.
+    """
+    
     r = client.get("/")
     assert r.status_code == 200
     assert r.json() == {"status": "ok"}
 
 def test_create_equipment(client):
+
+    """
+    Verify that a new piece of equipment can be registered
+    through the API and returns a valid identifier.
+    """
+
     payload = {"name": "ETCH-01", "tool_type": "Dry Etch", "location": "Fab A = Bay 1"}
     r = client.post("/equipment", json = payload)
     assert r.status_code == 200
@@ -13,6 +34,14 @@ def test_create_equipment(client):
     assert "id" in data
 
 def test_create_equipment_duplicate_name_returns_409(client):
+
+    """
+    Ensure duplicate equipment names are rejected.
+
+    This protects data integrity and mirrors real
+    manufacturing constraints where tool names are unique.
+    """
+
     payload = {"name": "ETCH=01", "tool_type": "Dry Etch", "location": "Fab A - Bay 2"}
     r1 = client.post("/equipment", json = payload)
     assert r1.status_code == 200
@@ -22,6 +51,15 @@ def test_create_equipment_duplicate_name_returns_409(client):
     assert "already exists" in r2.json()["detail"]
 
 def test_post_reading_creates_reading_and_alert(client):
+
+    """
+    Posting a sensor reading should:
+    - Persist the reading
+    - Generate an alert when thresholds are exceeded
+
+    This validates end-to-end ingestion and alert logic.
+    """
+
     # Create equipment first
     eq = client.post(
         "/equipment",
@@ -51,6 +89,19 @@ def test_post_reading_creates_reading_and_alert(client):
     assert alerts_data[0]["severity"] in ("WARNING", "FAILURE", "NORMAL")
 
 def test_health_endpoint_levels(client):
+
+    """
+    Validate health scoring using window-based hysteresis.
+
+    Scenario:
+    - Normal readings
+    - Multiple warnings
+    - A single failure
+
+    Expected result:
+    - MED health level (per V2 rules)
+    """
+
     # Create equipment
     eq = client.post(
         "/equipment",
