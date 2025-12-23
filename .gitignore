@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*/pyc 
+.pytest_cache/
+
+# Virtual enviroments
+venv/
+/env
+
+#Databases
+manufacturing.db 
+test_manufacturing.db 
+
+# Node / frontend
+node_modules/
+dist/

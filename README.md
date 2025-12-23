@@ -123,3 +123,34 @@ Backend
 -RESTful APIs
 
 -JSON-based communication
+
+## Manufacturing Equipment Monitoring System
+
+A fullstack backend system that ingests real-time sensor telemetry
+from manufacturing equipment, detects abnormal behavior, and
+summarizes equipment health for operators.
+
+### Key Features
+- Equipment registration with uniqueness constraints
+- Real-time sensor ingestion (temperature, pressure, vibration)
+- Deterministic alert generation (WARNING / FAILURE)
+- Window-based health scoring with hysteresis (LOW / MED / HIGH)
+- Telemetry simulator for end-to-end validation
+- Automated API tests with isolated test database
+
+### Architecture Overview
+- FastAPI backend
+- SQLAlchemy ORM with SQLite
+- Simulator injects telemetry via REST API
+- Alerts and health computed synchronously
+
+### Why This Matters for Manufacturing
+Operators need fast, reliable insight into tool health.
+This system reduces alert noise while highlighting
+real degradation and failure patterns.
+
+### How to Run (Backend)
+cd backend
+source venv/bin/activate
+uvicorn app.main:app --reload
+python simulate.py (in different terminal)
