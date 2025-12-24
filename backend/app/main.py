@@ -41,7 +41,7 @@ app = FastAPI(
 # CORS allows browser clients (Swagger UI, React frontend) to call this API.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins = ["https://congenial-funicular-g4rp7pp5pg9gcvgx-8000.app.github.dev"],
+    allow_origins = ["*"],
     allow_credentials = True,
     allow_methods = ["*"],
     allow_headers = ["*"],
