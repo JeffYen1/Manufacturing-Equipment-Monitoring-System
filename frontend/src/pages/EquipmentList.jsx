@@ -1,3 +1,15 @@
+/**
+ * Equipment List page
+ *
+ * Purpose:
+ * - show the operator a list of all registered tools
+ * - allow navigation to a tool's detail page (/equipment/:id)
+ *
+ * Data source:
+ * - GET /equipment (via frontend proxy /api/equipment)
+ */
+
+
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchEquipment } from "../api";
@@ -30,6 +42,7 @@ export default function EquipmentList() {
       {!loading && !err && (
         <div style={{ display: "grid", gap: 12 }}>
           {items.map((eq) => (
+            /* Clicking a card navigate to the detail page where readings/alerts are shown */
             <Link
               key={eq.id}
               to={`/equipment/${eq.id}`}

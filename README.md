@@ -154,3 +154,6 @@ cd backend
 source venv/bin/activate
 uvicorn app.main:app --reload
 python simulate.py (in different terminal)
+
+### Frontend Development Notes
+The frontend calls the backend via a vite proxy (`/api/*`) to avoid CORS and Codespaces tunnel authentication redirects. Backend must be running on port 8000.

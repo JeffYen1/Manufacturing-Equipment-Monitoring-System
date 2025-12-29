@@ -1,7 +1,20 @@
+/**
+ * Equipment List page
+ *
+ * Purpose:
+ * - show the operator a list of all registered tools
+ * - allow navigation to a tool's detail page (/equipment/:id)
+ *
+ * Data source:
+ * - GET /equipment (via frontend proxy /api/equipment)
+ */
+
+
 import { use, useEffect, useMemo, useState } from "react";
 import {Link, useParams } from "react-router-dom";
 import { fetchEquipmentById, fetchReadings } from "../api";
 
+// Keep the UI readable: sensor values do not need full floating-point precision.
 function fmt(n) {
     if (typeof n !== "number") return n;
     return Number(n.toFixed(3));
@@ -23,6 +36,7 @@ export default function EquipmentDetail() {
       setLoading(true);
       setErr("");
       try {
+        // Fetch metadata + readings together so the page loads in one pass.
         const [eqData, readingsData] = await Promise.all([
           fetchEquipmentById(equipmentId),
           fetchReadings(equipmentId, limit),
