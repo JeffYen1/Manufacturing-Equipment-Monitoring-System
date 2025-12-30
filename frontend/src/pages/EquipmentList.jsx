@@ -36,6 +36,23 @@ export default function EquipmentList() {
     <div style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
       <h1 style={{ marginBottom: 12 }}>Equipment</h1>
 
+      <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+        <Link
+          to="/dashboard"
+          style={{
+            display: "inline-block",
+            padding: "8px 12px",
+            border: "1px solid #444",
+            borderRadius: 10,
+            textDecoration: "none",
+            color: "inherit",
+            fontWeight: 700,
+          }}
+        >
+          Go to Dashboard →
+        </Link>
+      </div>
+
       {loading && <div>Loading...</div>}
       {err && <div style={{ padding: 12, border: "1px solid #999" }}><b>Error:</b> {err}</div>}
 

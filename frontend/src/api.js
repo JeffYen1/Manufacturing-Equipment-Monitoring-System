@@ -37,3 +37,9 @@ export async function fetchReadings(id, limit = 50) {
     if (!res.ok) throw new Error(`GET /equipment/${id}/readings failed: ${res.status} ${await res.text()}`)
     return res.json();
 }
+
+export async function fetchHealth(id, window = 50) {
+    const res = await fetch(`/api/equipment/${id}/health?window=${window}`);
+    if (!res.ok) throw new Error(`GET /equipment/${id}/health failed: ${res.status} ${await res.text()}`);
+    return res.json();
+}
