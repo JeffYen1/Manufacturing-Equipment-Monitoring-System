@@ -14,32 +14,61 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL;
  * - GET /equipment/{id}/readings?limit=N
  */
 
+async function asError(res, context) {
+    const text = await res.text();
+    return new Error(`${context} failed (${res.status}): ${text || res.statusText}`);
+}
+
+async function expectJson(res, context) {
+    if (!res.ok) throw await asError(res, context);
+    return res.json();
+}
+
+function withNetworkHint(err) {
+    const msg = err?.message ? String(err.message) : String(err);
+    if (msg.includes("Failed to fetch") || msg.includes("ECONNREFUSED")){
+        return new Error(
+            `${msg}\n\nHint: Is the backend running on port 8000? (uvicorn ... --port 8000)`
+        );
+    }
+    return err;
+}
+
 export async function fetchEquipment() {
     // List all tools for the Equipment List page
-    const res = await fetch(`/api/equipment`);
-    if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`GET /equipment failed: ${res.status} ${await res.text}`);
-    }
-    return res.json();
+    try {
+        const res = await fetch(`/api/equipment`);
+        return await expectJson(res, "GET /equipment");
+    } catch (e){
+        throw withNetworkHint(e);
+    }   
 }
 
 export async function fetchEquipmentById(id) {
     // Fetch tool metadata for the Equipment Detail page
-    const res = await fetch(`/api/equipment/${id}`);
-    if (!res.ok) throw new Error(`GET /equipment/${id} failed: ${res.status} ${await res.text()}`);
-    return res.json();
+    try{
+        const res = await fetch(`/api/equipment/${id}`);
+        return await expectJson(res, `GET /equipment/${id}`);
+    } catch (e) {
+        throw withNetworkHint(e);
+    }
 }
 
 export async function fetchReadings(id, limit = 50) {
     // Fetch most recent sensor readings (latest first) for table/chart display
-    const res = await fetch(`/api/equipment/${id}/readings?limit=${limit}`);
-    if (!res.ok) throw new Error(`GET /equipment/${id}/readings failed: ${res.status} ${await res.text()}`)
-    return res.json();
+    try{
+        const res = await fetch(`/api/equipment/${id}/readings?limit=${limit}`);
+        return await expectJson(res, `GET / equipment/${id}/readings`);
+    } catch (e) {
+        throw withNetworkHint(e);
+    }
 }
 
 export async function fetchHealth(id, window = 50) {
-    const res = await fetch(`/api/equipment/${id}/health?window=${window}`);
-    if (!res.ok) throw new Error(`GET /equipment/${id}/health failed: ${res.status} ${await res.text()}`);
-    return res.json();
+    try {
+        const res = await fetch(`/api/equipment/${id}/health?window=${window}`);
+        return await expectJson(res, `GET / equipment/${id}/health`);
+    } catch (e) {
+        throw withNetworkHint(e);
+    }
 }

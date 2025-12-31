@@ -1,46 +1,60 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchEquipment, fetchHealth } from "../api";
+import Nav from "../components/Nav";
+import Loading from "../components/Loading";
+import ErrorBox from "../components/ErrorBox";
+import EmptyState from "../components/EmptyState";
 
 function badgeStyle(level) {
-    const base = { padding: "2px 10px", borderRadius: 999, border: "1px solid #555", fontWeight: 700};
+    const base = { padding: "2px 10px", borderRadius: 999, border: "1px solid #555", fontWeight: 700, display: "inline-block",};
     if (level === "HIGH") return { ...base, borderColor: "#c33" };
     if (level === "MED") return { ...base, borderColor: "#cc3" };
-    return { ...base, borderColor: "#3c3" };
+    if (level === "LOW") return {...base, borderColor: "#3c3"};
+    return base;
 }   
 
 export default function Dashboard() {
-  const [tools, setTools] = useState([]);
   const [rows, setRows] = useState([]); // merged tool + health
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
+  const load = async () => {
+    setLoading(true);
+    setErr("");
+    try {
+      const equipment = await fetchEquipment();
+
+      // Fetch health in parallel; if one fails, keep dashboard alive.
+      const healthList = await Promise.all(
+        // equipment.map(async (eq, i) => {
+        //   const idToUse = i === 0 ? 999999 : eq.id;
+        //   return await fetchHealth(idToUse, 50);
+        // }),
+        equipment.map(async (eq) => {
+          try {
+            return await fetchHealth(eq.id, 50);
+          } catch (e) {
+            return { equipment_id: eq.id, level: "UNKNOWN", warning_count: null, failure_count: null, error: e?.message };
+          }
+        })
+      );
+
+      const merged = equipment.map((eq) => {
+        const h = healthList.find((x) => x.equipment_id === eq.id);
+        return { ...eq, health: h };
+      });
+
+      setRows(merged);
+    } catch (e) {
+      setErr(e?.message || "Failed to load dashboard");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      setErr("");
-      try {
-        const equipment = await fetchEquipment();
-        setTools(equipment);
-
-        // Fetch health for each tool in parallel
-        const healthList = await Promise.all(
-          equipment.map((eq) => fetchHealth(eq.id, 50).catch((e) => ({ equipment_id: eq.id, level: "UNKNOWN", error: e.message })))
-        );
-
-        // Merge tool metadata + health response
-        const merged = equipment.map((eq) => {
-          const h = healthList.find((x) => x.equipment_id === eq.id) || {};
-          return { ...eq, health: h };
-        });
-
-        setRows(merged);
-      } catch (e) {
-        setErr(e.message || "Failed to load dashboard");
-      } finally {
-        setLoading(false);
-      }
-    })();
+    load();
   }, []);
 
   const summary = useMemo(() => {
@@ -58,86 +72,94 @@ export default function Dashboard() {
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 18 }}>
+      <Nav />
+
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
         <h1 style={{ margin: 0 }}>Dashboard</h1>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
-          <Link to="/" style={{ textDecoration: "none" }}>Equipment</Link>
-          <span style={{ opacity: 0.5 }}>|</span>
-          <Link to="/dashboard" style={{ textDecoration: "none", fontWeight: 700 }}>Dashboard</Link>
-        </div>
+        <button
+          onClick={load}
+          style={{
+            marginLeft: "auto",
+            padding: "8px 12px",
+            borderRadius: 10,
+            border: "1px solid #444",
+            background: "transparent",
+            cursor: "pointer",
+            fontWeight: 700,
+          }}
+        >
+          Refresh
+        </button>
       </div>
 
-      {loading && <div>Loading dashboard…</div>}
-      {err && (
-        <div style={{ padding: 12, border: "1px solid #999", borderRadius: 8 }}>
-          <b>Error:</b> {err}
-          <div style={{ marginTop: 8, opacity: 0.8 }}>
-            Tip: confirm backend is running and <code>GET /equipment/{{id}}/health</code> works in docs.
-          </div>
-        </div>
+      {loading && <Loading label="Loading dashboard..." />}
+
+      {!loading && err && (
+        <ErrorBox title="Could not load dashboard" message={err} onRetry={load} />
       )}
 
-      {!loading && !err && (
+      {!loading && !err && rows.length === 0 && (
+        <EmptyState message="No equipment found yet. Create one via POST /equipment." />
+      )}
+
+      {!loading && !err && rows.length > 0 && (
         <>
-          {/* Summary cards */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 18 }}>
             <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
               <div style={{ opacity: 0.8 }}>Total tools</div>
-              <div style={{ fontSize: 26, fontWeight: 800 }}>{summary.total}</div>
+              <div style={{ fontSize: 26, fontWeight: 900 }}>{summary.total}</div>
             </div>
             <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
               <div style={{ opacity: 0.8 }}>Tools w/ FAILURE</div>
-              <div style={{ fontSize: 26, fontWeight: 800 }}>{summary.failureTools}</div>
+              <div style={{ fontSize: 26, fontWeight: 900 }}>{summary.failureTools}</div>
             </div>
             <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
               <div style={{ opacity: 0.8 }}>Tools w/ WARNING</div>
-              <div style={{ fontSize: 26, fontWeight: 800 }}>{summary.warningTools}</div>
+              <div style={{ fontSize: 26, fontWeight: 900 }}>{summary.warningTools}</div>
             </div>
             <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
               <div style={{ opacity: 0.8 }}>Tools OK</div>
-              <div style={{ fontSize: 26, fontWeight: 800 }}>{summary.okTools}</div>
+              <div style={{ fontSize: 26, fontWeight: 900 }}>{summary.okTools}</div>
             </div>
           </div>
 
-          {/* Tool table */}
-          {rows.length === 0 ? (
-            <div style={{ opacity: 0.8 }}>
-              No equipment found. Create one via <code>POST /equipment</code>.
-            </div>
-          ) : (
-            <div style={{ overflowX: "auto", border: "1px solid #444", borderRadius: 10 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr style={{ textAlign: "left" }}>
-                    <th style={{ padding: 10, borderBottom: "1px solid #444" }}>Tool</th>
-                    <th style={{ padding: 10, borderBottom: "1px solid #444" }}>Type</th>
-                    <th style={{ padding: 10, borderBottom: "1px solid #444" }}>Location</th>
-                    <th style={{ padding: 10, borderBottom: "1px solid #444" }}>Health</th>
-                    <th style={{ padding: 10, borderBottom: "1px solid #444" }}>Warnings</th>
-                    <th style={{ padding: 10, borderBottom: "1px solid #444" }}>Failures</th>
-                    <th style={{ padding: 10, borderBottom: "1px solid #444" }}>Open</th>
+          <div style={{ overflowX: "auto", border: "1px solid #444", borderRadius: 10 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ textAlign: "left" }}>
+                  <th style={{ padding: 10, borderBottom: "1px solid #444" }}>Tool</th>
+                  <th style={{ padding: 10, borderBottom: "1px solid #444" }}>Type</th>
+                  <th style={{ padding: 10, borderBottom: "1px solid #444" }}>Location</th>
+                  <th style={{ padding: 10, borderBottom: "1px solid #444" }}>Health</th>
+                  <th style={{ padding: 10, borderBottom: "1px solid #444" }}>Warnings</th>
+                  <th style={{ padding: 10, borderBottom: "1px solid #444" }}>Failures</th>
+                  <th style={{ padding: 10, borderBottom: "1px solid #444" }}>Open</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id}>
+                    <td style={{ padding: 10, borderBottom: "1px solid #333" }}>{r.name}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid #333" }}>{r.tool_type}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid #333" }}>{r.location}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid #333" }}>
+                      <span style={badgeStyle(r.health?.level)}>{r.health?.level ?? "UNKNOWN"}</span>
+                      {r.health?.error && (
+                        <div style={{ marginTop: 6, opacity: 0.7, fontSize: 12 }}>
+                          health fetch failed
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: 10, borderBottom: "1px solid #333" }}>{r.health?.warning_count ?? "-"}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid #333" }}>{r.health?.failure_count ?? "-"}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid #333" }}>
+                      <Link to={`/equipment/${r.id}`}>Details</Link>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {rows.map((r) => (
-                    <tr key={r.id}>
-                      <td style={{ padding: 10, borderBottom: "1px solid #333" }}>{r.name}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #333" }}>{r.tool_type}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #333" }}>{r.location}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #333" }}>
-                        <span style={badgeStyle(r.health?.level)}>{r.health?.level ?? "UNKNOWN"}</span>
-                      </td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #333" }}>{r.health?.warning_count ?? "-"}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #333" }}>{r.health?.failure_count ?? "-"}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #333" }}>
-                        <Link to={`/equipment/${r.id}`}>Details</Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </div>
