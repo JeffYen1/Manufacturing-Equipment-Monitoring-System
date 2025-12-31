@@ -1,3 +1,11 @@
+/**
+ * ErrorBox
+ *
+ * A reusable error display with an optional Retry button.
+ * We keep errors visible in the UI (instead of crashing / blank page)
+ * which is important for real manufacturing systems where uptime matters.
+ */
+
 export default function ErrorBox({ title = "Error", message, onRetry }) {
     return (
         <div style={{ padding: 12, border: "1px solid #999", borderRadius: 10 }}>

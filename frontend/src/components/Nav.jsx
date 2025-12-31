@@ -1,3 +1,9 @@
+/**
+ * Nav
+ *
+ * Simple navigation shared across pages so you don't need to type routes manually.
+ */
+
 import { Link, useLocation } from "react-router-dom";
 
 export default function Nav() {

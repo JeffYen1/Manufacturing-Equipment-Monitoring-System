@@ -1,30 +1,33 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 /**
- * API helpers for the frontend.
+ * Frontend API helpers.
  *
- * We call the backend through the Vite dev proxy (`/api/...`) so:
- * - requests stay same-origin (no CORS issues)
- * - we avoid Codespaces tunnel auth redirects
- * - local development is stable and predictable
+ * We call the backend through the Vite dev proxy (`/api/...`) so we avoid:
+ * - CORS issues (same-origin requests)
+ * - Codespaces tunnel auth redirects returning HTML instead of JSON
  *
- * Backend routes (proxied):
- * - GET /equipment
- * - GET /equipment/{id}
- * - GET /equipment/{id}/readings?limit=N
+ * Design goal:
+ * - Every function either returns JSON, or throws a readable Error message
+ *   that the UI can display (and allow Retry).
  */
 
 async function asError(res, context) {
+    // Use text() because FastAPI error bodies are usually JSON, but sometimes
+    // proxy/network errors return empty bodies or HTML.
     const text = await res.text();
     return new Error(`${context} failed (${res.status}): ${text || res.statusText}`);
 }
 
 async function expectJson(res, context) {
+    // Centralized response check so pages stay simple.
     if (!res.ok) throw await asError(res, context);
     return res.json();
 }
 
 function withNetworkHint(err) {
+    // Browser-level failures often appear as "Failed to fetch"
+    // (e.g., backend stopped or proxy cannot connect).
     const msg = err?.message ? String(err.message) : String(err);
     if (msg.includes("Failed to fetch") || msg.includes("ECONNREFUSED")){
         return new Error(
