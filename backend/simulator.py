@@ -15,11 +15,12 @@ import requests
 
 BASE_URL = "http://127.0.0.1:8000"
 
-TOOLS = [
-    {"id": 1, "name": "ETCH-01"},
-    {"id": 2, "name": "CVD-02"},
-    {"id": 3, "name": "CMP-03"},
-]
+def fetch_tools():
+    r = requests.get(f"{BASE_URL}/equipment", timeout = 10)
+    r.raise_for_status()
+    data = r.json()
+    # Expecting list of {id, name, ...}
+    return [{"id": e["id"], "name": e.get("name", f"Tool-{e['id']}")} for e in data]
 
 def generate_normal_reading():
 
@@ -95,7 +96,7 @@ def send_reading(tool_id, reading):
         response = requests.post(url, json = payload, timeout = 10)
         print("POST", url, "->", response.status_code, response.text[:200])
     except requests.RequestException as e:
-        print("Requset failed:", e)
+        print("Request failed:", e)
 
 
 def run_simulation():
@@ -112,8 +113,13 @@ def run_simulation():
 
     print("Starting equipment simulator...")
 
+    tools = fetch_tools()
+    if not tools:
+        print("No equipment found. Create equipment first (POST /equipment).")
+        return
+
     while True:
-        for tool in TOOLS:
+        for tool in tools:
             # 80% normal, 20% fault
             if random.random() < 0.8:
                 reading = generate_normal_reading()
@@ -126,3 +132,4 @@ def run_simulation():
 
 if __name__ == "__main__":
     run_simulation()
+

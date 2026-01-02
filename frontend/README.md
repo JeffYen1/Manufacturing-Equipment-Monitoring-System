@@ -1,16 +1,36 @@
-# React + Vite
+# Manufacturing Equipment Monitoring System — Frontend (React + Vite)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the React frontend for the Manufacturing Equipment Monitoring System.  
+It displays a fleet view of tools, per-tool detail pages (readings/alerts), and a dashboard summary.
 
-Currently, two official plugins are available:
+## Features
+- **Equipment List**: view all tools (name, type, location)
+- **Equipment Detail**: drill down into a single tool and view:
+  - recent sensor readings (temperature/pressure/vibration)
+  - recent alerts (NORMAL/WARNING/FAILURE)
+  - health level (LOW / MED / HIGH) based on recent window
+- **Dashboard**: system overview including counts and health status per tool
+- **Resilient UI states**: Loading / Error (with Retry) / Empty state (no data yet)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Tech Stack
+- React + Vite
+- React Router
+- Fetch API
+- Vite dev proxy for backend calls (avoids CORS during development)
 
-## React Compiler
+## API / Backend Integration
+During development, the frontend calls the backend through a proxy:
+- Frontend requests use: `/api/...`
+- Vite forwards `/api` → `http://127.0.0.1:8000`
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Make sure `vite.config.js` contains a proxy like:
+- `/api` → `http://127.0.0.1:8000` with rewrite removing `/api`
 
-## Expanding the ESLint configuration
+## Run Locally
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 1) Start backend first
+From the repo root:
+```bash
+cd backend
+source venv/bin/activate
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000

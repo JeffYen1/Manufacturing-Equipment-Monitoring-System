@@ -7,9 +7,6 @@ This service provides:
 - Rule-based classification of readings into NORMAL / WARNING / FAILURE
 - Storage and querying of alerts per equipment
 
-Why this matters (CIM/Fab IT context):
-Raw sensor data isn't actionable by itself. Engineers need alerts + context
-to quickly identify tools at risk and prioritize troubleshooting/maintenance.
 """
 
 from fastapi import FastAPI, Depends
@@ -30,6 +27,7 @@ from .schemas import (
     HealthOut,
 )
 # Create database tables at app startup (simple approach for development).
+# NOTE: Dev-only convenience. In production you'd use migration (Alembic).
 models.Base.metadata.create_all(bind = engine)
 
 # FastAPI application instance (defines metadata shown in Swagger /docs)
@@ -83,7 +81,7 @@ def evaluate_reading(temp: float, pressure: float, vibration: float) -> tuple[st
     if vibration > VIB_FAIL:
         return ("FAILURE", f"vibration > {VIB_FAIL}")
     if pressure < PRESSURE_LOW or pressure > PRESSURE_HIGH:
-        return ("FAILURE", f"pressure out of reange [{PRESSURE_LOW}, {PRESSURE_HIGH}]") 
+        return ("FAILURE", f"pressure out of range [{PRESSURE_LOW}, {PRESSURE_HIGH}]") 
     
     # WARNING rules
     if temp > TEMP_WARN:
@@ -259,7 +257,6 @@ def get_equipment_alerts(equipment_id: int, limit: int = 50, db: Session = Depen
     return (
         db.query(Alert)
         .filter(Alert.equipment_id == equipment_id)
-        # BUG FIX: create_at -> created_at (assuming your model uses created_at)
         .order_by(Alert.create_at.desc())
         .limit(limit)
         .all()
@@ -279,20 +276,20 @@ def get_failures(limit: int = 50, db: Session = Depends(get_db)):
         db.query(Alert)
         # BUG FIX: "FAilURE" -> "FAILURE"
         .filter(Alert.severity == "FAILURE")
-        # BUG FIX: create_at -> created_at
         .order_by(Alert.create_at.desc())
         .limit(limit)
         .all()
     )
 
 
-def coumpute_health(readings: list[SensorReading]) -> tuple[str, int, int]:
+def compute_health(readings: list[SensorReading]) -> tuple[str, int, int]:
 
     """
-    Compute a simple health level based on the most recent readings.
+    We compute health from the last N readings using the same deterministic
+    rules for transparency and testability.
 
     Returns:
-        (level, warning_count, failure_count)
+        (level, warning_count, failure_count = compute_health(readings))
     """
     warning_count = 0
     failure_count = 0
