@@ -40,3 +40,24 @@
 .read-the-docs {
   color: #888;
 }
+
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid rgba(0,0,0,0.15);
+}
+
+.badge-run {
+  background: rgba(0, 200, 0, 0.12);
+}
+
+.badge-idle {
+  background: rgba(120, 120, 120, 0.15);
+}
+
+.badge-down {
+  background: rgba(255, 0, 0, 0.12);
+}

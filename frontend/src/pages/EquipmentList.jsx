@@ -9,7 +9,6 @@
  * - GET /equipment (via frontend proxy /api/equipment)
  */
 
-
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchEquipment } from "../api";
@@ -17,6 +16,14 @@ import Nav from "../components/Nav";
 import Loading from "../components/Loading";
 import ErrorBox from "../components/ErrorBox";
 import EmptyState from "../components/EmptyState";
+
+function statusBadgeClass(status) {
+  if (status === "RUN") 
+    return "badge badge-run";
+  if (status === "DOWN")
+    return "badge badge-down";
+  return "badge badge-idle";
+}
 
 export default function EquipmentList() {
   const [items, setItems] = useState([]);
@@ -88,6 +95,13 @@ export default function EquipmentList() {
             >
               <div style={{ fontSize: 18, fontWeight: 800 }}>
                 {eq.name} <span style={{ opacity: 0.7 }}>#{eq.id}</span>
+
+                <span 
+                className={statusBadgeClass(eq.status)}
+                style={{ marginLeft: 10 }}
+                >
+                  {eq.status ?? "IDLE"}
+                </span>
               </div>
               <div style={{ marginTop: 6 }}>
                 <b>Tool Type:</b> {eq.tool_type}

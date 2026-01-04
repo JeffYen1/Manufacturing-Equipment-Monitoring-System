@@ -12,6 +12,8 @@ class Equipment(Base):
     tool_type = Column(String)
     location = Column(String)
     status = Column(String, default = "RUN")
+    last_seen_at = Column(DateTime, nullable = True)
+    status = Column(String, default = "IDEL")
 
 class SensorReading(Base):
     __tablename__ = "sensor_reading"

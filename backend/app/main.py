@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
+from datetime import datetime, timezone
 
 from .database import engine, SessionLocal
 from . import models
@@ -26,6 +27,7 @@ from .schemas import (
     AlertOut,
     HealthOut,
 )
+
 # Create database tables at app startup (simple approach for development).
 # NOTE: Dev-only convenience. In production you'd use migration (Alembic).
 models.Base.metadata.create_all(bind = engine)
@@ -149,6 +151,7 @@ def create_equipment(equipment: EquipmentCreate, db: Session = Depends(get_db)):
 
 @app.get("/equipment", response_model=list[EquipmentOut])
 def list_equipment(db: Session = Depends(get_db)):
+    equipment = db.query(Equipment).all()
 
     """
     List all equipment.
@@ -156,7 +159,17 @@ def list_equipment(db: Session = Depends(get_db)):
     Useful for dashboards and admin views.
     """
 
-    return db.query(Equipment).all()
+    return [
+        {
+            "id": e.id,
+            "name": e.name,
+            "tool_type": e.tool_type,
+            "location": e.location,
+            "last_seen_at": e.last_seen_at,
+            "status": compute_status(e.last_seen_at),
+        }
+        for e in equipment
+    ]
 
 
 @app.get("/equipment/{equipment_id}", response_model=EquipmentOut)
@@ -171,7 +184,14 @@ def get_equipment(equipment_id: int, db: Session = Depends(get_db)):
     eq = db.query(Equipment).filter(Equipment.id == equipment_id).first()
     if not eq:
         raise HTTPException(status_code=404, detail="Equipment not found")
-    return eq
+    return {
+        "id": eq.id,
+        "name": eq.name,
+        "tool_type": eq.tool_type,
+        "location": eq.location,
+        "last_seen_at": eq.last_seen_at,
+        "status": compute_status(eq.last_seen_at),  
+    }
 
 
 # -----------------------------
@@ -191,6 +211,8 @@ def add_reading(reading: SensorReadingCreate, db: Session = Depends(get_db)):
 
     # Validate equipment exists to avoid foreign key issues and provide a clean error to client
     eq = db.query(Equipment).filter(Equipment.id == reading.equipment_id).first()
+    eq.last_seen_at = datetime.utcnow()
+    eq.status = "RUN"
     if not eq:
         raise HTTPException(status_code=404, detail="Equipment not found")
 
@@ -325,7 +347,7 @@ def get_equipment_health(equipment_id: int, window: int = 50, db: Session = Depe
         .all()
     )
 
-    level, warning_count, failure_count = coumpute_health(readings)
+    level, warning_count, failure_count = compute_health(readings)
 
     return {
         "equipment_id": equipment_id,
@@ -334,3 +356,12 @@ def get_equipment_health(equipment_id: int, window: int = 50, db: Session = Depe
         "warning_count": warning_count,
         "failure_count": failure_count,
     }
+
+DOWN_AFTER_SECONDS = 30
+
+def compute_status(last_seen_at):
+    if last_seen_at is None:
+        return "IDEL"
+    
+    now = datetime.utcnow()
+    return "DOWN" if (now - last_seen_at).total_seconds() > DOWN_AFTER_SECONDS else "RUN"

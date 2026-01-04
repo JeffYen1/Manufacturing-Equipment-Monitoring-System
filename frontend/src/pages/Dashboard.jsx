@@ -60,6 +60,8 @@ export default function Dashboard() {
   const summary = useMemo(() => {
     const total = rows.length;
 
+    const downTools = rows.filter((r) => r.status === "DOWN").length;
+
     const failureTools = rows.filter((r) => (r.health?.failure_count ?? 0) > 0 || r.health?.level === "HIGH").length;
     const warningTools = rows.filter(
       (r) => (r.health?.failure_count ?? 0) === 0 && ((r.health?.warning_count ?? 0) > 0 || r.health?.level === "MED")
@@ -67,7 +69,7 @@ export default function Dashboard() {
 
     const okTools = rows.filter((r) => (r.health?.failure_count ?? 0) === 0 && (r.health?.warning_count ?? 0) === 0 && r.health?.level === "LOW").length;
 
-    return { total, failureTools, warningTools, okTools };
+    return { total, downTools, failureTools, warningTools, okTools };
   }, [rows]);
 
   return (
@@ -104,10 +106,18 @@ export default function Dashboard() {
 
       {!loading && !err && rows.length > 0 && (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 18 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 12, marginBottom: 18 }}>
             <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
               <div style={{ opacity: 0.8 }}>Total tools</div>
               <div style={{ fontSize: 26, fontWeight: 900 }}>{summary.total}</div>
+            </div>
+            <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
+              <div style={{ opacity: 0.8 }}>Total tools</div>
+              <div style={{ fontSize: 26, fontWeight: 900 }}>{summary.total}</div>
+            </div>
+            <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
+              <div style={{ opacity: 0.8 }}>Tools DOWN</div>
+              <div style={{ fontSize: 26, fontWeight: 900 }}>{summary.downTools}</div>
             </div>
             <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
               <div style={{ opacity: 0.8 }}>Tools w/ FAILURE</div>

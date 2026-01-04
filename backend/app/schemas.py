@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 from pydantic import BaseModel
+from typing import Optional
 
 class EquipmentCreate(BaseModel):
      
@@ -16,16 +17,19 @@ class SensorReadingCreate(BaseModel):
     vibration: float
 
 class EquipmentOut(BaseModel):
+
     id: int 
     name: str
     tool_type: str
     location: str
     status: str
+    last_seen_at: Optional[datetime] = None
 
-    class Config: 
-        from_attributes = True
+class Config: 
+    from_attributes = True
 
 class SensorReadingOut(BaseModel):
+
     id: int 
     equipment_id: int 
     temperature: float
@@ -37,6 +41,7 @@ class SensorReadingOut(BaseModel):
         from_attributes = True
 
 class AlertOut(BaseModel):
+
     id: int
     equipment_id: int
     severity: str
@@ -47,6 +52,7 @@ class AlertOut(BaseModel):
         from_attributes = True
 
 class HealthOut(BaseModel):
+
     equipment_id: int
     level: str
     window: int
