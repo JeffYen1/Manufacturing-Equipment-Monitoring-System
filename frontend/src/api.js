@@ -75,3 +75,12 @@ export async function fetchHealth(id, window = 50) {
         throw withNetworkHint(e);
     }
 }
+
+export async function fetchDashboardSummary(window = 50) {
+    const res = await fetch(`/api/dashboard/summary?window=${window}`);
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`GET /dashboard/summary failed (${res.status}): ${text}`);
+    }
+    return await res.json();
+}

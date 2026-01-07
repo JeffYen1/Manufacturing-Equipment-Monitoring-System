@@ -37,6 +37,22 @@ def generate_normal_reading():
         "vibration": random.uniform(0.2, 0.5),
     }
 
+def generate_warning_reading():
+    warning_type = random.choice(["temp", "vibration"])
+
+    if warning_type == "temp":
+        return {
+            "temperature": random.uniform(86, 94),
+            "pressure": random.uniform(0.9, 1.1),
+            "vibration": random.uniform(0.2, 0.5),
+        }
+    
+    return {
+        "temperature": random.uniform(60, 80),
+        "pressure": random.uniform(0.9, 1.1),
+        "vibration": random.uniform(0.71, 0.89),
+    }
+
 def generate_fault_reading():
 
     """
@@ -121,8 +137,10 @@ def run_simulation():
     while True:
         for tool in tools:
             # 80% normal, 20% fault
-            if random.random() < 0.8:
+            if random.random() < 0.70:
                 reading = generate_normal_reading()
+            elif random.random() < 0.90:
+                reading = generate_warning_reading()
             else:
                 reading = generate_fault_reading()
             

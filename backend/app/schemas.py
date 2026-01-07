@@ -37,8 +37,8 @@ class SensorReadingOut(BaseModel):
     vibration: float
     timestamp: datetime
 
-    class Config:
-        from_attributes = True
+class Config:
+    from_attributes = True
 
 class AlertOut(BaseModel):
 
@@ -48,8 +48,8 @@ class AlertOut(BaseModel):
     reason: str
     create_at: datetime
 
-    class Config:
-        from_attributes = True
+class Config:
+    from_attributes = True
 
 class HealthOut(BaseModel):
 
@@ -58,3 +58,12 @@ class HealthOut(BaseModel):
     window: int
     warning_count: int
     failure_count: int
+
+class DashboardSummaryOut(BaseModel):
+    total: int
+    run: int 
+    idle: int
+    down: int
+    high: int
+    med: int
+    low: int

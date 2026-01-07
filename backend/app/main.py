@@ -26,6 +26,7 @@ from .schemas import (
     SensorReadingOut,
     AlertOut,
     HealthOut,
+    DashboardSummaryOut
 )
 
 # Create database tables at app startup (simple approach for development).
@@ -323,9 +324,16 @@ def compute_health(readings: list[SensorReading]) -> tuple[str, int, int]:
         elif severity == "WARNING":
             warning_count += 1
 
-    if failure_count >= 2:
+    n = len(readings)
+    if n == 0:
+        return "LOW", 0 ,0
+    
+    failure_rate = failure_count / n
+    warning_rate = warning_count / n
+
+    if failure_rate >= 0.10 or failure_count >= 3:
         level = "HIGH"
-    elif failure_count == 1 or warning_count >= 3:
+    elif failure_rate >= 0.02 or warning_rate >= 0.10 or warning_count >= 3:
         level = "MED"
     else:
         level = "LOW"
@@ -365,3 +373,46 @@ def compute_status(last_seen_at):
     
     now = datetime.utcnow()
     return "DOWN" if (now - last_seen_at).total_seconds() > DOWN_AFTER_SECONDS else "RUN"
+
+@app.get("/dashboard/summary", response_model = DashboardSummaryOut)
+def dashboard_summary(window: int = 50, db: Session = Depends(get_db)):
+    equipment = db.query(Equipment).all()
+
+    # Status Counts
+    run = idle = down = 0
+    for eq in equipment:
+        s = compute_status(eq.last_seen_at)
+        if s == "RUN":
+            run += 1
+        elif s == "DOWN":
+            down += 1
+        else:
+            idle += 1
+
+    # Health Counts
+    high = med = low = 0
+    for eq in equipment:
+        readings = (
+            db.query(SensorReading)
+            .filter(SensorReading.equipment_id == eq.id)
+            .order_by(SensorReading.timestamp.desc())
+            .limit(window)
+            .all()
+        )
+        level, _, _ = compute_health(readings)
+        if level == "HIGH":
+            high += 1
+        elif level == "MED":
+            med += 1
+        else:
+            low += 1
+
+    return {
+        "total": len(equipment),
+        "run": run,
+        "idle": idle,
+        "down": down,
+        "high": high,
+        "med": med,
+        "low": low,
+    }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { fetchEquipment, fetchHealth } from "../api";
+import { fetchEquipment, fetchHealth, fetchDashboardSummary } from "../api";
 import Nav from "../components/Nav";
 import Loading from "../components/Loading";
 import ErrorBox from "../components/ErrorBox";
@@ -18,12 +18,16 @@ export default function Dashboard() {
   const [rows, setRows] = useState([]); // merged tool + health
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+  const [summary, setSummary] = useState(null);
 
   const load = async () => {
     setLoading(true);
     setErr("");
     try {
       const equipment = await fetchEquipment();
+
+      const s = await fetchDashboardSummary(50);
+      setSummary(s);
 
       // Fetch health in parallel; if one fails, keep dashboard alive.
       const healthList = await Promise.all(
@@ -57,21 +61,6 @@ export default function Dashboard() {
     load();
   }, []);
 
-  const summary = useMemo(() => {
-    const total = rows.length;
-
-    const downTools = rows.filter((r) => r.status === "DOWN").length;
-
-    const failureTools = rows.filter((r) => (r.health?.failure_count ?? 0) > 0 || r.health?.level === "HIGH").length;
-    const warningTools = rows.filter(
-      (r) => (r.health?.failure_count ?? 0) === 0 && ((r.health?.warning_count ?? 0) > 0 || r.health?.level === "MED")
-    ).length;
-
-    const okTools = rows.filter((r) => (r.health?.failure_count ?? 0) === 0 && (r.health?.warning_count ?? 0) === 0 && r.health?.level === "LOW").length;
-
-    return { total, downTools, failureTools, warningTools, okTools };
-  }, [rows]);
-
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
       <Nav />
@@ -104,35 +93,45 @@ export default function Dashboard() {
         <EmptyState message="No equipment found yet. Create one via POST /equipment." />
       )}
 
-      {!loading && !err && rows.length > 0 && (
+      {!loading && !err && (rows.length > 0 || summary) && (
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 12, marginBottom: 18 }}>
             <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
-              <div style={{ opacity: 0.8 }}>Total tools</div>
-              <div style={{ fontSize: 26, fontWeight: 900 }}>{summary.total}</div>
-            </div>
-            <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
-              <div style={{ opacity: 0.8 }}>Total tools</div>
-              <div style={{ fontSize: 26, fontWeight: 900 }}>{summary.total}</div>
-            </div>
-            <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
-              <div style={{ opacity: 0.8 }}>Tools DOWN</div>
-              <div style={{ fontSize: 26, fontWeight: 900 }}>{summary.downTools}</div>
-            </div>
-            <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
-              <div style={{ opacity: 0.8 }}>Tools w/ FAILURE</div>
-              <div style={{ fontSize: 26, fontWeight: 900 }}>{summary.failureTools}</div>
-            </div>
-            <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
-              <div style={{ opacity: 0.8 }}>Tools w/ WARNING</div>
-              <div style={{ fontSize: 26, fontWeight: 900 }}>{summary.warningTools}</div>
-            </div>
-            <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
-              <div style={{ opacity: 0.8 }}>Tools OK</div>
-              <div style={{ fontSize: 26, fontWeight: 900 }}>{summary.okTools}</div>
-            </div>
+            <div style={{ opacity: 0.8 }}>Total tools</div>
+            <div style={{ fontSize: 26, fontWeight: 900 }}>{summary?.total ?? "-"}</div>
           </div>
 
+          <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
+            <div style={{ opacity: 0.8 }}>Tools RUN</div>
+            <div style={{ fontSize: 26, fontWeight: 900 }}>{summary?.run ?? "-"}</div>
+          </div>
+
+          <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
+            <div style={{ opacity: 0.8 }}>Tools IDLE</div>
+            <div style={{ fontSize: 26, fontWeight: 900 }}>{summary?.idle ?? "-"}</div>
+          </div>
+
+          <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
+            <div style={{ opacity: 0.8 }}>Tools DOWN</div>
+            <div style={{ fontSize: 26, fontWeight: 900 }}>{summary?.down ?? "-"}</div>
+          </div>
+
+          <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
+            <div style={{ opacity: 0.8 }}>Health HIGH</div>
+            <div style={{ fontSize: 26, fontWeight: 900 }}>{summary?.high ?? "-"}</div>
+          </div>
+
+          <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
+            <div style={{ opacity: 0.8 }}>Health MED</div>
+            <div style={{ fontSize: 26, fontWeight: 900 }}>{summary?.med ?? "-"}</div>
+          </div>
+
+          <div style={{ border: "1px solid #444", borderRadius: 10, padding: 14 }}>
+            <div style={{ opacity: 0.8 }}>Health LOW</div>
+            <div style={{ fontSize: 26, fontWeight: 900 }}>{summary?.low ?? "-"}</div>
+          </div>
+            </div>
+          
           <div style={{ overflowX: "auto", border: "1px solid #444", borderRadius: 10 }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
