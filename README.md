@@ -157,3 +157,15 @@ python simulate.py (in different terminal)
 
 ### Frontend Development Notes
 The frontend calls the backend via a vite proxy (`/api/*`) to avoid CORS and Codespaces tunnel authentication redirects. Backend must be running on port 8000.
+
+### What changed
+- Added a dedicated WARNING generator (`generate_warning_reading`) that produces readings
+  in the WARNING range (temp 86–94 or vibration 0.71–0.89) without triggering FAILURE.
+- Tuned simulator probabilities so WARNING and FAILURE appear at controlled rates
+  (demo preset), making health levels change visibly in the UI.
+
+### Why it matters (manufacturing/CIM context)
+Real fab monitoring systems need to distinguish:
+- normal operating noise
+- early degradation signals (WARNING)
+- critical conditions (FAILURE)

@@ -1,13 +1,17 @@
 """
 Simulator for Manufacturing Equipment Monitoring System.
 
-This script simulates multiple manufacturing tools by periodically
-sending sensor readings to the backend API.
+This script simulates tool telemetry by posting sensor readings to the FastAPI backend.
 
-Purpose:
-- Stress-test alert logic
-- Demonstrate automated data ingestion
-- Mimic real equipment telemetry
+Updates:
+- Added WARNING-mode telemetry generation to produce readings that cross warning thresholds
+  (temperature 86–94C or vibration 0.71–0.89) while keeping pressure stable.
+- Tuned probabilities between NORMAL / WARNING / FAILURE so dashboards and health scoring
+  show meaningful variation for demos and testing.
+
+Why this matters:
+Manufacturing monitoring systems depend on realistic distributions of warnings/failures
+to validate alerting logic and prevent false confidence from all-normal data.
 """
 import time
 import random
